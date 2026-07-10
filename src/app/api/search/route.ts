@@ -130,7 +130,7 @@ Gere 5 produtos reais com preços realistas para o Brasil. Se não souber links 
 O campo "bestDeal" deve ser o produto com melhor custo-benefício.`;
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -157,6 +157,39 @@ O campo "bestDeal" deve ser o produto com melhor custo-benefício.`;
   }
 
   return JSON.parse(jsonMatch[0]) as SearchResponse;
+}
+
+export async function GET() {
+  try {
+    if (API_KEYS.length === 0) {
+      return NextResponse.json(
+        { error: "Nenhuma chave Gemini configurada no servidor." },
+        { status: 500 }
+      );
+    }
+    const key = API_KEYS[0];
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`
+    );
+    const data = await response.json();
+
+    if (!response.ok) {
+      return NextResponse.json(
+        { error: `Erro ao listar modelos: ${response.status}`, details: data },
+        { status: response.status }
+      );
+    }
+
+    const models = (data.models || []).map((m: { name: string; supportedGenerationMethods?: string[] }) => ({
+      name: m.name,
+      supportsGenerateContent: m.supportedGenerationMethods?.includes("generateContent") ?? false,
+    }));
+
+    return NextResponse.json({ models });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 export async function POST(req: NextRequest) {
