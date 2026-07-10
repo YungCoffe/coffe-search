@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, QrCode, CheckCircle, Loader2, Copy, Check } from "lucide-react";
 import { addPaidRequests } from "@/utils/db";
 
@@ -14,6 +14,7 @@ interface PaymentModalProps {
 export default function PaymentModal({ isOpen, onClose, userId, onSuccess }: PaymentModalProps) {
   const [step, setStep] = useState<"info" | "pix" | "processing" | "success">("info");
   const [copied, setCopied] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(0);
 
   const PIX_EMAIL = "temporavel2@gmail.com";
   const PIX_KEY = "temporavel2@gmail.com";
@@ -24,6 +25,18 @@ export default function PaymentModal({ isOpen, onClose, userId, onSuccess }: Pay
   // Gera um PIX copia e cola simples (simulado)
   const pixCode = `00020126580014BR.GOV.BCB.PIX0136${PIX_KEY}52040000530398654045.005802BR5913${PIX_NAME}6009${PIX_CITY}62070503***6304`;
 
+  useEffect(() => {
+    if (step !== "processing") return;
+    if (secondsLeft <= 0) {
+      addPaidRequests(userId, 10);
+      setStep("success");
+      onSuccess();
+      return;
+    }
+    const timer = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [step, secondsLeft]);
+
   if (!isOpen) return null;
 
   const handleCopyPix = () => {
@@ -33,12 +46,16 @@ export default function PaymentModal({ isOpen, onClose, userId, onSuccess }: Pay
   };
 
   const handleConfirmPayment = () => {
+    // Tempo de verificação simulado entre 2 e 3 minutos
+    const waitSeconds = Math.floor(Math.random() * 60) + 120; // 120-180s
+    setSecondsLeft(waitSeconds);
     setStep("processing");
-    setTimeout(() => {
-      addPaidRequests(userId, 10);
-      setStep("success");
-      onSuccess();
-    }, 2500);
+  };
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -138,7 +155,8 @@ export default function PaymentModal({ isOpen, onClose, userId, onSuccess }: Pay
           <div className="p-12 flex flex-col items-center justify-center">
             <Loader2 className="w-12 h-12 text-green-400 animate-spin mb-4" />
             <p className="text-white font-medium">Verificando pagamento...</p>
-            <p className="text-sm text-coffee-500 mt-1">Isso pode levar alguns segundos</p>
+            <p className="text-3xl font-bold text-green-400 mt-3 tabular-nums">{formatTime(secondsLeft)}</p>
+            <p className="text-sm text-coffee-500 mt-1">Aguarde a confirmação do PIX</p>
           </div>
         )}
 
