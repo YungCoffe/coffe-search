@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   Coffee, LogOut, Shield, CreditCard, MessageSquare,
-  BarChart3, Zap, Lock, Crown
+  BarChart3, Zap, Lock, Crown, QrCode
 } from "lucide-react";
 import AuthModal from "@/components/AuthModal";
 import SearchChat from "@/components/SearchChat";
@@ -48,6 +48,7 @@ export default function Home() {
       setUser(current);
       updateRemaining(current.id);
     }
+    setIsAuthOpen(false);
   };
 
   const handleLogout = () => {
@@ -101,7 +102,7 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-2">
-            {user && !user.isAdmin && (
+            {user && !user.isAdmin && remaining > 0 && (
               <button
                 onClick={() => setIsPaymentOpen(true)}
                 className="hidden sm:flex items-center gap-1.5 bg-coffee-800 hover:bg-coffee-700 border border-coffee-600 text-coffee-300 text-xs px-3 py-1.5 rounded-lg transition-colors"
@@ -109,6 +110,17 @@ export default function Home() {
                 <CreditCard className="w-3.5 h-3.5" />
                 <span className="font-medium">{remaining}</span>
                 <span className="text-coffee-500">restantes</span>
+              </button>
+            )}
+
+            {user && !user.isAdmin && remaining <= 0 && (
+              <button
+                onClick={() => setIsPaymentOpen(true)}
+                className="flex items-center gap-1.5 bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-1.5 rounded-lg transition-colors animate-pulse shadow-lg shadow-green-900/50"
+                title="Comprar mais requests via PIX"
+              >
+                <QrCode className="w-4 h-4" />
+                <span className="font-medium hidden sm:inline">Comprar via PIX</span>
               </button>
             )}
 
