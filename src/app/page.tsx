@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   Coffee, LogOut, Shield, CreditCard, MessageSquare,
-  BarChart3, Zap, Lock
+  BarChart3, Zap, Lock, Crown
 } from "lucide-react";
 import AuthModal from "@/components/AuthModal";
 import SearchChat from "@/components/SearchChat";
