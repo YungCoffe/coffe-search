@@ -138,25 +138,47 @@ O campo "bestDeal" deve ser o produto com melhor custo-benefício.`;
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 2048,
+          maxOutputTokens: 8192,
+          responseMimeType: "application/json",
         },
       }),
     }
   );
 
   if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`);
+    const errText = await response.text();
+    throw new Error(`Gemini API error: ${response.status} - ${errText.slice(0, 200)}`);
   }
 
   const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error("Não foi possível extrair JSON da resposta");
+  const finishReason = data.candidates?.[0]?.finishReason;
+  const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+  if (!text) {
+    throw new Error(`Resposta vazia do Gemini (finishReason: ${finishReason || "desconhecido"})`);
   }
 
-  return JSON.parse(jsonMatch[0]) as SearchResponse;
+  // Remove possíveis cercas de markdown (```json ... ```)
+  const cleaned = text.replace(/```json\s*|```\s*/g, "").trim();
+
+  try {
+    return JSON.parse(cleaned) as SearchResponse;
+  } catch (parseError) {
+    // Tenta extrair o maior bloco JSON válido possível como último recurso
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[0]) as SearchResponse;
+      } catch {
+        // segue para o erro abaixo
+      }
+    }
+    const msg = parseError instanceof Error ? parseError.message : "erro de parsing";
+    throw new Error(
+      `JSON inválido do Gemini (finishReason: ${finishReason || "?"}): ${msg}`
+    );
+  }
 }
 
 export async function GET() {
