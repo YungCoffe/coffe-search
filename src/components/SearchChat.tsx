@@ -72,9 +72,9 @@ Sou o Coffee Search, seu comparador de preços inteligente. Me diga qual produto
           {
             id: `err-${Date.now()}`,
             role: "assistant",
-            content: "⚠️ Você atingiu o limite diário de 5 requests.
+            content: `⚠️ Você atingiu o limite diário de 5 requests.
 
-Quer mais? Pague R$ 5,00 para ter +10 requests extras!",
+Quer mais? Pague R$ 5,00 para ter +10 requests extras!`,
             timestamp: new Date(),
           },
         ]);
