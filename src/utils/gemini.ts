@@ -29,9 +29,11 @@ export async function searchProductsWithGemini(productName: string): Promise<Sea
     body: JSON.stringify({ productName }),
   });
 
+  const data = await response.json();
+
   if (!response.ok) {
-    throw new Error(`Erro na busca: ${response.status}`);
+    throw new Error(data?.error || `Erro na busca: ${response.status}`);
   }
 
-  return (await response.json()) as SearchResponse;
+  return data as SearchResponse;
 }

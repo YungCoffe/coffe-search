@@ -171,6 +171,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result);
   } catch (error) {
     console.error("Erro Gemini:", error);
-    return NextResponse.json(getFallbackResults(productName));
+    const message = error instanceof Error ? error.message : "Erro desconhecido";
+    return NextResponse.json(
+      { error: `Falha ao consultar a API do Gemini: ${message}` },
+      { status: 502 }
+    );
   }
 }
