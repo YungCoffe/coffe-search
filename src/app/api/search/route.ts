@@ -125,7 +125,7 @@ IMPORTANTE: Retorne APENAS um JSON válido no seguinte formato (sem markdown, se
   "bestDeal": { ... }
 }
 
-Gere 5 produtos reais com preços realistas para o Brasil. Se não souber links exatos, use links genéricos das lojas (mercadolivre.com.br, amazon.com.br, magazineluiza.com.br, casasbahia.com.br, americanas.com.br).
+Use a busca do Google para encontrar produtos reais, com preços atuais e links DIRETOS para a página do produto específico (não a homepage da loja). Gere até 5 opções reais com preços realistas para o Brasil.
 
 O campo "bestDeal" deve ser o produto com melhor custo-benefício.`;
 
@@ -136,6 +136,7 @@ O campo "bestDeal" deve ser o produto com melhor custo-benefício.`;
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
+        tools: [{ google_search: {} }],
         generationConfig: {
           temperature: 0.3,
           maxOutputTokens: 8192,
