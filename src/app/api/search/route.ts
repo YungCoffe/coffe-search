@@ -101,8 +101,29 @@ function getFallbackResults(productName: string): SearchResponse {
   };
 }
 
+async function callGemini(key: string, prompt: string): Promise<Response> {
+  return fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        tools: [{ google_search: {} }],
+        generationConfig: {
+          temperature: 0.3,
+          maxOutputTokens: 8192,
+          responseMimeType: "application/json",
+        },
+      }),
+    }
+  );
+}
+
 async function searchProductsWithGemini(productName: string): Promise<SearchResponse> {
-  const key = getNextKey();
+  if (API_KEYS.length === 0) {
+    throw new Error("Nenhuma chave Gemini configurada no servidor.");
+  }
 
   const prompt = `Você é um comparador de preços inteligente. O usuário quer comprar: "${productName}".
 
@@ -129,57 +150,56 @@ Use a busca do Google para encontrar produtos reais, com preços atuais e links 
 
 O campo "bestDeal" deve ser o produto com melhor custo-benefício.`;
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${key}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        tools: [{ google_search: {} }],
-        generationConfig: {
-          temperature: 0.3,
-          maxOutputTokens: 8192,
-          responseMimeType: "application/json",
-        },
-      }),
-    }
-  );
+  // Tenta cada chave disponível em ordem; se uma falhar (quota, erro de rede, etc.),
+  // tenta a próxima automaticamente antes de desistir.
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini API error: ${response.status} - ${errText.slice(0, 200)}`);
-  }
+  for (let attempt = 0; attempt < API_KEYS.length; attempt++) {
+    const key = getNextKey();
+    try {
+      const response = await callGemini(key, prompt);
 
-  const data = await response.json();
-
-  const finishReason = data.candidates?.[0]?.finishReason;
-  const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
-
-  if (!text) {
-    throw new Error(`Resposta vazia do Gemini (finishReason: ${finishReason || "desconhecido"})`);
-  }
-
-  // Remove possíveis cercas de markdown (```json ... ```)
-  const cleaned = text.replace(/```json\s*|```\s*/g, "").trim();
-
-  try {
-    return JSON.parse(cleaned) as SearchResponse;
-  } catch (parseError) {
-    // Tenta extrair o maior bloco JSON válido possível como último recurso
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        return JSON.parse(jsonMatch[0]) as SearchResponse;
-      } catch {
-        // segue para o erro abaixo
+      if (!response.ok) {
+        const errText = await response.text();
+        lastError = new Error(`Gemini API error: ${response.status} - ${errText.slice(0, 200)}`);
+        // Erros de quota/permissão: tenta a próxima chave. Outros erros também tentam, por segurança.
+        continue;
       }
+
+      const data = await response.json();
+      const finishReason = data.candidates?.[0]?.finishReason;
+      const text: string = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+      if (!text) {
+        lastError = new Error(`Resposta vazia do Gemini (finishReason: ${finishReason || "desconhecido"})`);
+        continue;
+      }
+
+      // Remove possíveis cercas de markdown (```json ... ```)
+      const cleaned = text.replace(/```json\s*|```\s*/g, "").trim();
+
+      try {
+        return JSON.parse(cleaned) as SearchResponse;
+      } catch (parseError) {
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          try {
+            return JSON.parse(jsonMatch[0]) as SearchResponse;
+          } catch {
+            // segue para o erro abaixo
+          }
+        }
+        const msg = parseError instanceof Error ? parseError.message : "erro de parsing";
+        lastError = new Error(`JSON inválido do Gemini (finishReason: ${finishReason || "?"}): ${msg}`);
+        continue;
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error("Erro desconhecido");
+      continue;
     }
-    const msg = parseError instanceof Error ? parseError.message : "erro de parsing";
-    throw new Error(
-      `JSON inválido do Gemini (finishReason: ${finishReason || "?"}): ${msg}`
-    );
   }
+
+  throw lastError || new Error("Todas as chaves Gemini falharam.");
 }
 
 export async function GET() {
